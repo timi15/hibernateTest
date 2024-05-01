@@ -1,9 +1,11 @@
-package com.example.hibernateTest.service;
+package com.example.hibernateTest.service.impl;
 
-import com.example.hibernateTest.entity.Subject;
+
 import com.example.hibernateTest.entity.Teacher;
 import com.example.hibernateTest.helper.TeacherHelper;
 import com.example.hibernateTest.repository.TeacherRepository;
+import com.example.hibernateTest.service.ITeacherService;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-public class TeacherService {
+public class TeacherService implements ITeacherService {
 
     @Autowired
     TeacherRepository teacherRepository;
@@ -19,37 +21,45 @@ public class TeacherService {
     @Autowired
     TeacherHelper teacherHelper;
 
+    @Override
     public Optional<Teacher> getTeacherById(Integer id) {
         return teacherRepository.findById(id);
     }
 
-    public List<Teacher> getAllTeacher(){
+    @Override
+    public List<Teacher> getAllTeacher() {
         return (List<Teacher>) teacherRepository.findAll();
     }
 
+    @Override
     public Teacher getTheYoungestTeacher() {
         return teacherRepository.findTheYoungestTeacher();
     }
 
-    public List<String> subjectList(Integer id){
+    @Override
+    public List<String> subjectList(Integer id) {
         Optional<Teacher> teacher = teacherRepository.findById(id);
-        if(teacher.isEmpty()){
+        if (teacher.isEmpty()) {
             throw new RuntimeException("Id is invalid datum");
         }
         return teacherRepository.listOfSubject(teacher.get().getId());
     }
 
+    @Override
     public Teacher saveTeacher(Teacher teacher) {
-        //üzeleti validálások ...
         return teacherHelper.saveTeacher(teacher);
     }
 
-    public void deleteTeacherById(int id){
-        Optional<Teacher> teacher = teacherRepository.findById(id);
-        if(teacher.isEmpty()){
-            throw new RuntimeException("Id is invalid datum or teacher has class");
-        }
-        teacherRepository.delete(teacher.get());
+    @Transactional
+    @Override
+    public Teacher updateTeacher(Teacher teacherRequest, Teacher currentTeacher) {
+        currentTeacher.setFirstname(teacherRequest.getFirstname());
+        currentTeacher.setLastname(teacherRequest.getLastname());
+        return teacherRepository.save(currentTeacher);
     }
 
+    @Override
+    public void deleteTeacher(Teacher teacher) {
+        teacherRepository.delete(teacher);
+    }
 }

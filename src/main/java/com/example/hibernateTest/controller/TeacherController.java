@@ -1,7 +1,7 @@
 package com.example.hibernateTest.controller;
 
 import com.example.hibernateTest.entity.Teacher;
-import com.example.hibernateTest.service.TeacherService;
+import com.example.hibernateTest.service.ITeacherService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -21,7 +21,7 @@ import java.util.Optional;
 public class TeacherController {
 
     @Autowired
-    TeacherService teacherService;
+    ITeacherService teacherService;
 
     @Operation(summary = "return teacher by id")
     @ApiResponses(value = {
@@ -62,6 +62,7 @@ public class TeacherController {
             @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = Void.class))
     })
     @GetMapping("/subject/{id}")
+    @Deprecated
     public List<String> getSubjectList(@PathVariable int id){
         return teacherService.subjectList(id);
     }
@@ -74,22 +75,35 @@ public class TeacherController {
     public ResponseEntity<Teacher> addTeacher(@RequestBody Teacher teacher){
         return new ResponseEntity<>(teacherService.saveTeacher(teacher), HttpStatus.OK);
     }
+    @Operation(summary = "modify teacher")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "teacher is modified", content = {
+                    @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = Teacher.class))
+            }),
+            @ApiResponse(responseCode = "404", description = "teacher is not found")
+    })
+    @PutMapping("/{id}")
+    public ResponseEntity<Teacher> modifyTeacherById(@PathVariable int id, @RequestBody Teacher teacherRequest){
+        Optional<Teacher> currentTeacher = teacherService.getTeacherById(id);
+        return currentTeacher.map(teacher -> new ResponseEntity<>(teacherService.updateTeacher(teacherRequest, teacher), HttpStatus.OK)).orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
 
     @Operation(summary = "delete teacher by id")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "no content", content = {
                     @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = Teacher.class))
             }),
-            @ApiResponse(responseCode = "502", description = "internal server error", content = {
+            @ApiResponse(responseCode = "500", description = "internal server error", content = {
                     @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = Teacher.class))
             })
     })
     @DeleteMapping("/{id}")
     public HttpStatus deleteTeacherById(@PathVariable Integer id){
-        if(!teacherService.subjectList(id).isEmpty()){
-            return HttpStatus.BAD_GATEWAY;
+        Optional<Teacher> teacher = teacherService.getTeacherById(id);
+        if(!teacherService.subjectList(id).isEmpty() || teacher.isEmpty()){
+            return HttpStatus.INTERNAL_SERVER_ERROR;
         }
-        teacherService.deleteTeacherById(id);
+        teacherService.deleteTeacher(teacher.get());
         return HttpStatus.NO_CONTENT;
     }
 

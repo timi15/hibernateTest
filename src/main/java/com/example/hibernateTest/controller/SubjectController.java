@@ -2,8 +2,8 @@ package com.example.hibernateTest.controller;
 
 import com.example.hibernateTest.entity.Subject;
 import com.example.hibernateTest.entity.Teacher;
-import com.example.hibernateTest.service.SubjectService;
-import com.example.hibernateTest.service.TeacherService;
+import com.example.hibernateTest.service.ISubjectService;
+import com.example.hibernateTest.service.ITeacherService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -23,20 +23,18 @@ import java.util.Optional;
 public class SubjectController {
 
     @Autowired
-    SubjectService subjectService;
+    ISubjectService subjectService;
 
     @Autowired
-    TeacherService teacherService;
+    ITeacherService teacherService;
 
     @Operation(summary = "return subject by id")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "returned subject by id"),
-            @ApiResponse(responseCode = "204", description = "no content", content = {
-                    @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = Void.class))
-            })
+            @ApiResponse(responseCode = "204", description = "no content")
     })
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Subject> getSubjectById(@PathVariable String id){
+    public ResponseEntity<Subject> getSubjectById(@PathVariable String id) {
         Optional<Subject> subject = subjectService.getSubjectById(id);
         return subject.map(value -> new ResponseEntity<>(value, HttpStatus.OK)).orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
@@ -44,12 +42,10 @@ public class SubjectController {
     @Operation(summary = "return all subject")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "returned all teachers"),
-            @ApiResponse(responseCode = "204", description = "no content", content = {
-                    @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = Void.class))
-            })
+            @ApiResponse(responseCode = "204", description = "no content")
     })
     @GetMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
-    public List<Subject> getAllSubject(){
+    public List<Subject> getAllSubject() {
         return subjectService.getAllSubject();
     }
 
@@ -57,18 +53,42 @@ public class SubjectController {
     @ApiResponse(responseCode = "200", description = "subject is saved", content = {
             @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = Subject.class))
     })
-    @PostMapping(value = "/addSubject/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Subject> addSubject(@RequestBody Subject subject, @PathVariable int id){
-        Optional<Teacher> teacher = teacherService.getTeacherById(id);
-        return teacher.map(value -> new ResponseEntity<>(subjectService.saveSubject(subject, value), HttpStatus.OK)).orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    @PostMapping(value = "/addSubject/{teacherId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Subject> addSubject(@RequestBody Subject subject, @PathVariable int teacherId) {
+        Optional<Teacher> teacher = teacherService.getTeacherById(teacherId);
+        return teacher.map(value -> new ResponseEntity<>(subjectService.saveSubject(subject, value), HttpStatus.OK))
+                .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    @Operation(summary = "modify subject")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "subject is modified", content = {
+                    @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = Subject.class))
+            }),
+            @ApiResponse(responseCode = "404", description = "subject or teacher is not found")
+    })
+    @PutMapping(value = "/{id}/{teacherId}")
+    public ResponseEntity<Subject> modifySubjectById(@PathVariable String id, @PathVariable int teacherId, @RequestBody Subject subjectRequest){
+        Optional<Subject> currentSubject = subjectService.getSubjectById(id);
+        Optional<Teacher> teacher = teacherService.getTeacherById(teacherId);
+        if(currentSubject.isEmpty() || teacher.isEmpty()){
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<>(subjectService.updateSubject(subjectRequest,currentSubject.get(),teacher.get() ), HttpStatus.OK);
     }
 
     @Operation(summary = "delete subject by id")
-    @ApiResponse(responseCode = "404", description = "not found", content = {
-            @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = Subject.class))
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "404", description = "This subject not found"),
+            @ApiResponse(responseCode = "204", description = "no content")
     })
-    @DeleteMapping("/{id}")
-    private void deleteSubjectById(@PathVariable String id){
-        subjectService.deleteSubjectById(id);
+    @DeleteMapping(value = "/{id}")
+    private ResponseEntity<?> deleteSubjectById(@PathVariable String id) {
+        Optional<Subject> subject = subjectService.getSubjectById(id);
+        if(subject.isEmpty()){
+            return ResponseEntity.status(404).build();
+        }
+        subjectService.deleteSubject(subject.get());
+        return ResponseEntity.status(204).build();
     }
 }
